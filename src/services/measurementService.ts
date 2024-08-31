@@ -4,11 +4,17 @@ import { writeFile } from 'fs/promises';
 import sharp from 'sharp';
 import path from 'path';
 
-import { GEMINI_API_KEY, GEMINI_API_URL} from '../config/gemini';
+import { GEMINI_API_KEY, GEMINI_API_URL } from '../config/gemini';
 import MeasurementRepository from '../repositories/measurementRepository';
 import { MeasurementDto } from '../dtos/measurementDto';
 import Measurement from '../models/measurement';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, } from '@google/generative-ai';
+const { GoogleAIFileManager } = require("@google/generative-ai/server");
+
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey!);
+const fileManager = new GoogleAIFileManager(apiKey);
+
 
 class MeasurementService {
   async createMeasurement(measurementData: MeasurementDto): Promise<Measurement> {
@@ -19,27 +25,63 @@ class MeasurementService {
     return MeasurementRepository.findById(id);
   }
 
+
+
   async getMeasurementFromImage(imageBase64: string): Promise<number> {
-    const genAi = new GoogleGenerativeAI(GEMINI_API_KEY!);
-
-    const model = genAi.getGenerativeModel({
-      model: "gemini-1.5-pro",
-    });
-
-    const imageBuffer = Buffer.from(imageBase64, 'base64');
-  
     try {
-      // Replace generateText with the correct method
-      const result = await model.generateContent([
-        {
+
+      const fileUri = `data:image/jpeg;base64,${imageBase64}`;
+      const imageBuffer = Buffer.from(imageBase64, 'base64');
+
+      const files = [
+        await fileManager.uploadFile({
           fileData: {
-            mimeType: "image/jpeg",
-            fileUri: Buffer.from(imageBase64).toString('base64')
+            mimeType: 'image/jpeg',
+            fileUri: imageBase64,
           }
-        },
-        { text: "What is the number in clock meditor?" },
-      ]);
-  
+        }
+        )
+      ];
+
+      const generationConfig = {
+        temperature: 1,
+        topP: 0.95,
+        topK: 64,
+        maxOutputTokens: 8192,
+        responseMimeType: "text/plain",
+      };
+
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+      });
+
+      const chatSession = model.startChat({
+        generationConfig,
+        // safetySettings: Adjust safety settings
+        // See https://ai.google.dev/gemini-api/docs/safety-settings
+        history: [
+          {
+            role: "user",
+            parts: [
+              {
+                fileData: {
+                  mimeType: files[0].mimeType,
+                  fileUri: files[0].uri,
+                },
+              },
+            ],
+          },
+          {
+            role: "model",
+            parts: [
+              { text: "Qual o numero que aparece no relogio medidor?" },
+            ],
+          },
+        ],
+      });
+
+      const result = await chatSession.sendMessage("INSERT_INPUT_HERE");
+
       if (result.response && result.response.text()) {
         const matched = result.response.text().match(/\d+/);
         if (matched) {
@@ -50,12 +92,12 @@ class MeasurementService {
       } else {
         throw new Error('Resposta inválida da API Gemini.');
       }
-    } catch (error) {
+    }catch(error){
       console.error('Erro ao processar a imagem:', error);
       throw new Error('Erro ao processar a imagem.');
     }
   }
-  
+
   async saveBase64Image(imageBase64: string, fileName: string): Promise<string> {
 
     const matches = imageBase64.match(/^data:image\/(\w+);base64,(.+)$/);

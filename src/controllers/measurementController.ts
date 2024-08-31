@@ -72,7 +72,7 @@ class MeasurementController {
       res.status(200).json({ image_url: newMeasurement.filePath , measure_value: measure_value, measure_uuid: newMeasurement.id });
     } catch (error: unknown) {
       if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
+        res.status(400).json({error: "An unexpected error occurred"});
       } else {
         res.status(500).json({ error: 'An unexpected error occurred' });
       }
