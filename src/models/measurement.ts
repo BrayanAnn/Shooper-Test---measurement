@@ -9,6 +9,9 @@ interface MeasurementAttributes {
   customerCode: string;
   measureDatetime: Date;
   measureType: 'WATER' | 'GAS';
+  measureValue: number | null;
+  confirmedMeasureValue: boolean;
+  filePath: string;
 }
 
 // Atributos opcionais na criação (id gerado automaticamente)
@@ -21,7 +24,9 @@ class Measurement extends Model<MeasurementAttributes, MeasurementCreationAttrib
   public customerCode!: string;
   public measureDatetime!: Date;
   public measureType!: 'WATER' | 'GAS';
-
+  public measureValue: number = -1;
+  public confirmedMeasureValue: boolean = false;
+  public filePath!: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -40,6 +45,12 @@ Measurement.init(
     customerCode: {
       type: DataTypes.STRING,
       allowNull: false,
+      unique: true
+    },
+    filePath: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
     },
     measureDatetime: {
       type: DataTypes.DATE,
@@ -49,6 +60,13 @@ Measurement.init(
       type: DataTypes.ENUM('WATER', 'GAS'),
       allowNull: false,
     },
+    measureValue: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    confirmedMeasureValue: {
+      type: DataTypes.BOOLEAN,
+    }
   },
   {
     sequelize,

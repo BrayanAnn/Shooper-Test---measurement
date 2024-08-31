@@ -3,4 +3,7 @@ export interface MeasurementDto {
     customerCode: string;
     measureDatetime: Date;
     measureType: 'WATER' | 'GAS';
+    measureValue: number;
+    confirmedMeasureValue: boolean
+    filePath: string;
   }
